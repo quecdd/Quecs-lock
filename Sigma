@@ -796,6 +796,24 @@ for _, player in ipairs(game.Players:GetPlayers()) do
     end)
 end
 
+-- Function to unlock the target when the enemy's health reaches zero
+local function onCharacterDied(character)
+    if Victim and character == Victim.Character then
+        Victim = nil
+        Locked = false
+        Notify("Unlocked!")
+    end
+end
+
+-- Listen for changes in the enemy's health
+for _, player in ipairs(game.Players:GetPlayers()) do
+    player.CharacterAdded:Connect(function(character)
+        character:WaitForChild("Humanoid").Died:Connect(function()
+            onCharacterDied(character)
+        end)
+    end)
+end
+
 -- Modify the locking mechanism to unlock when the enemy's health reaches zero
 Mouse.KeyDown:Connect(function(k)
     SelectedKey = SelectedKey:lower()
@@ -813,10 +831,11 @@ Mouse.KeyDown:Connect(function(k)
                 end
             end
         else
-            Notify("Aimlock is not enabled!")
+            Notify("Unlocked")
         end
     end
     if k == SelectedDisableKey then
         AimlockState = not AimlockState
     end
 end)
+
