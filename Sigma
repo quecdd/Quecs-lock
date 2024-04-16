@@ -49,3 +49,19 @@ RS.RenderStepped:Connect(function()
         end
     end
 end)
+-- ... (rest of the script)
+
+RS.RenderStepped:Connect(function()
+  update()
+  if AimlockState == true then
+    if Victim ~= nil then
+      -- Check if the target's character exists and the humanoid is not dead
+      if Victim.Character and Victim.Character:FindFirstChild("Humanoid") and Victim.Character.Humanoid:IsDead() then
+        -- Unlock aimbot if the target is dead
+        Victim = nil
+        Locked = false
+      end
+    end
+  end
+end)
+
