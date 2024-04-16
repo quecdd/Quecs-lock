@@ -1,73 +1,51 @@
-local Players = game:GetService("Players")
-local RS = game:GetService("RunService")
-local WS = game:GetService("Workspace")
+-- Replace the existing GUI library with a new one
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/preztel/AzureLibrary/master/uilib.lua"))()
 
-local AimlockState = true
-local Locked = false
-local Victim = nil
-
-local Key = Enum.KeyCode.C
-
--- Function to check if a player is alive
-local function isAlive(player)
-    return player and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0
-end
-
--- Function to lock onto the closest player to the cursor
-local function lockOntoClosest()
-    if AimlockState then
-        Locked = not Locked
-        if Locked then
-            Victim = getClosestAlivePlayerToCursor()
-            if Victim then
-                print("Locked onto: " .. Victim.Name)
-            else
-                Locked = false
-                print("No valid target found.")
-            end
-        else
-            Victim = nil
-            print("Unlocked!")
-        end
-    else
-        print("Aimlock is not enabled!")
-    end
-end
-
--- Function to get the closest alive player to the cursor
-local function getClosestAlivePlayerToCursor()
-    local closestPlayer
-    local shortestDistance = math.huge
-    local mousePos = Players.LocalPlayer:GetMouse().Hit.Position
-
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= Players.LocalPlayer and isAlive(player) then
-            local pos = WS.CurrentCamera:WorldToViewportPoint(player.Character.PrimaryPart.Position)
-            local magnitude = (Vector2.new(pos.X, pos.Y) - Vector2.new(mousePos.X, mousePos.Y)).magnitude
-            if magnitude < shortestDistance then
-                closestPlayer = player
-                shortestDistance = magnitude
-            end
-        end
-    end
-
-    return closestPlayer
-end
-
--- Listen for key presses
-Players.LocalPlayer:GetMouse().KeyDown:Connect(function(key)
-    if key.KeyCode == Key then
-        lockOntoClosest()
-    end
+-- Create a new GUI window with a red theme
+local Window = Library:CreateWindow("Made By Quec", UDim2.new(0, 400, 0, 300))
+Window:AddImage("rbxassetid://6996357307", UDim2.new(0.5, -100, 0, 50))
+Window:AddLabel("Main", "Camlock", {TextSize = 24, TextColor = Color3.fromRGB(255, 0, 0)})
+Window:AddSwitch("Enable", function(enabled)
+    getgenv().Enabled = enabled
 end)
 
--- Listen for character death
-Players.PlayerAdded:Connect(function(player)
-    player.Character:WaitForChild("Humanoid").Died:Connect(function()
-        if Victim == player then
-            Victim = nil
-            Locked = false
-            print("Target has been eliminated. Unlocking aimlock.")
+-- Add dropdown for HitPart selection
+local hitPartDropdown = Window:AddDropdown("HitPart", {"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso", "Penis"}, function(selectedOption)
+    getgenv().RecurringPoint = selectedOption
+end)
+hitPartDropdown:SetBackgroundColor(Color3.fromRGB(255, 0, 0))
+hitPartDropdown:SetTextColor(Color3.fromRGB(255, 255, 255))
+
+-- Add textboxes for customization
+Window:AddTextbox("Cam Prediction", function(text)
+    getgenv().PredictionAmount = tonumber(text)
+end)
+Window:AddTextbox("Smoothness", function(text)
+    getgenv().AimbotStrengthAmount = tonumber(text)
+end)
+Window:AddTextbox("Radius", function(text)
+    getgenv().Radius = tonumber(text)
+end)
+
+-- Set default values for settings
+getgenv().RecurringPoint = "UpperTorso"
+getgenv().AimbotStrengthAmount = 0.405
+getgenv().PredictionAmount = 10
+getgenv().Radius = 50
+getgenv().Enabled = false
+-- Inside the RenderStepped event loop where the aimbot is locked onto the target
+RS.RenderStepped:Connect(function()
+    update()
+    if AimlockState == true then
+        if Victim ~= nil then
+            -- Check if the locked target's character exists and is alive
+            if Victim.Character and Victim.Character:FindFirstChild("Humanoid") and Victim.Character.Humanoid.Health > 0 then
+                Camera.CFrame = CFrame.new(Camera.CFrame.p, Victim.Character[getgenv().AimPart].Position + Victim.Character[getgenv().AimPart].Velocity * getgenv().Prediction)
+            else
+                -- Automatically unlock aimbot if the target dies
+                Victim = nil
+                Locked = false
+            end
         end
-    end)
+    end
 end)
