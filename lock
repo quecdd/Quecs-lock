@@ -1,0 +1,137 @@
+-- Services
+local Players = game:GetService("Players")
+local Camera = workspace.CurrentCamera
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Constants
+local SCREEN_WIDTH = Camera.ViewportSize.X
+local SCREEN_HEIGHT = Camera.ViewportSize.Y
+local UPDATE_INTERVAL = 0.01 -- Decrease interval for faster updates
+local PREDICTION_FACTOR = 0.161 -- Factor to adjust the prediction accuracy
+
+-- Variables
+local focusing = false
+local targetPlayer = nil
+local focusButton
+local dragging = false
+local dragInput, dragStart, startPos
+
+-- Create UI Button
+local function createFocusButton()
+    local screenGui = Instance.new("ScreenGui")
+    focusButton = Instance.new("TextButton")
+    screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+    focusButton.Parent = screenGui
+    focusButton.Size = UDim2.new(0, 100, 0, 50)
+    focusButton.Position = UDim2.new(0.5, -50, 0.9, -25)
+    focusButton.Text = "quecslock"
+    focusButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+end
+
+-- Function to get the closest player's torso to the crosshair
+local function getClosestPlayer()
+    local closestPlayer = nil
+    local shortestDistance = math.huge
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= Players.LocalPlayer and player.Character then
+            local humanoidRootPart = player.Character:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                local screenPoint = Camera:WorldToScreenPoint(humanoidRootPart.Position)
+                local distance = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2)).magnitude
+                if distance < shortestDistance then
+                    closestPlayer = player
+                    shortestDistance = distance
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+-- Function to start or stop focusing on the closest player
+local function toggleFocus()
+    if focusing then
+        focusing = false
+    else
+        local closestPlayer = getClosestPlayer()
+        if closestPlayer then
+            local character = closestPlayer.Character
+            local torso = character and character:FindFirstChild("HumanoidRootPart")
+            if torso then
+                targetPlayer = closestPlayer
+                focusing = true
+            end
+        end
+    end
+end
+
+-- Update camera orientation while focusing with prediction
+local function updateCamera()
+    if focusing and targetPlayer then
+        local character = targetPlayer.Character
+        local torso = character and character:FindFirstChild("HumanoidRootPart")
+        if torso then
+            local currentPos = torso.Position
+            local velocity = torso.Velocity
+
+            -- Predict the future position based on velocity and prediction factor
+            local futurePos = currentPos + velocity * PREDICTION_FACTOR
+
+            -- Directly set the camera's look direction to the predicted position
+            local newLookVector = (futurePos - Camera.CFrame.Position).unit
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, Camera.CFrame.Position + newLookVector)
+        end
+    end
+end
+
+-- Button drag functionality (supports both mouse and touch inputs)
+local function onInputBegan(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = focusButton.Position
+        dragInput = input
+    end
+end
+
+local function onInputChanged(input)
+    if dragging and input == dragInput then
+        local delta = input.Position - dragStart
+        focusButton.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
+end
+
+local function onInputEnded(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = false
+    end
+end
+
+-- Connect the button click event
+local function setupButton()
+    if not focusButton then
+        createFocusButton()
+    end
+    focusButton.MouseButton1Click:Connect(toggleFocus)
+    focusButton.InputBegan:Connect(onInputBegan)
+    focusButton.InputChanged:Connect(onInputChanged)
+    focusButton.InputEnded:Connect(onInputEnded)
+end
+
+-- Continuously update the camera orientation
+local function startUpdating()
+    RunService.Heartbeat:Connect(function()
+        updateCamera()
+        wait(UPDATE_INTERVAL)
+    end)
+end
+
+-- Initialize the script
+setupButton()
+startUpdating()
